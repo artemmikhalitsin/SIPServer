@@ -29,7 +29,35 @@ func TestSIPServer(t *testing.T) {
 		// Wait briefly server to receive message
 		time.Sleep(10 * time.Millisecond)
 
+		if store.lookups != 1 {
+			t.Errorf("Expected server to do %d lookups, but got %d", 1, store.lookups)
+		}
 		if store.lastAor != aor {
+			t.Errorf("Expected server to look up %q, but got %q instead", aor, store.lastAor)
+		}
+
+		select {
+		case response := <-readMessage(responseReader):
+			if len(response) == 0 {
+				t.Errorf("Expected a response from the server, but didn't get one")
+			}
+			if response == connectionClosedMessage {
+				t.Errorf("Got a connection closed message, but didn't expect one")
+			}
+		case <-time.After(100 * time.Millisecond):
+			t.Errorf("Timed out after waiting for a response")
+		}
+
+		// Should serve additional lookups on same connection
+		nextAor := "014fb44ecd123b6706000100620005"
+		fmt.Fprintln(conn, nextAor)
+
+		time.Sleep(10 * time.Millisecond)
+
+		if store.lookups != 2 {
+			t.Errorf("Expected server to do %d lookups, but got %d", 2, store.lookups)
+		}
+		if store.lastAor != nextAor {
 			t.Errorf("Expected server to look up %q, but got %q instead", aor, store.lastAor)
 		}
 
@@ -93,8 +121,10 @@ func (f *FakeStore) Find(aor string) {}
 
 type SpyStore struct {
 	lastAor string
+	lookups int
 }
 
 func (s *SpyStore) Find(aor string) {
 	s.lastAor = aor
+	s.lookups++
 }

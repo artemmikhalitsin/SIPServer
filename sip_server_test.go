@@ -30,7 +30,7 @@ func TestSIPServer(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 
 		assertStoreLookups(t, store, 1)
-		assertAorLookedUp(t, store, aor)
+		assertLastAorLookedUp(t, store, aor)
 
 		response, err := readWithTimeout(t, responseReader)
 		assertValidResponse(t, response, err)
@@ -42,7 +42,7 @@ func TestSIPServer(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 
 		assertStoreLookups(t, store, 2)
-		assertAorLookedUp(t, store, nextAor)
+		assertLastAorLookedUp(t, store, nextAor)
 
 		response, err = readWithTimeout(t, responseReader)
 		assertValidResponse(t, response, err)
@@ -58,31 +58,27 @@ func TestSIPServer(t *testing.T) {
 		// Wait briefly for server to start
 		time.Sleep(10 * time.Millisecond)
 
-		conn1, reader1, closeConn1 := connectToServer(t, server.address)
+		conn1, _, closeConn1 := connectToServer(t, server.address)
 		defer closeConn1()
-		conn2, reader2, closeConn2 := connectToServer(t, server.address)
+		conn2, _, closeConn2 := connectToServer(t, server.address)
 		defer closeConn2()
 
-		aor1 := "aor1"
-		aor2 := "aor2"
+		sip1 := SIPRecord{
+			AddressOfRecord: "aor1",
+		}
+		sip2 := SIPRecord{
+			AddressOfRecord: "aor2",
+		}
 
-		fmt.Fprintln(conn1, aor1)
-		fmt.Fprintln(conn2, aor2)
+		fmt.Fprintln(conn1, sip1.AddressOfRecord)
+		fmt.Fprintln(conn2, sip2.AddressOfRecord)
 
 		// Wait for server to receive messages
 		time.Sleep(10 * time.Millisecond)
 
-		response, err := readWithTimeout(t, reader1)
-		assertValidResponse(t, response, err)
-		if response != aor1 {
-			t.Errorf("Expected to respond to reader with %q, but got %q", aor1, response)
-		}
-
-		response, err = readWithTimeout(t, reader2)
-		assertValidResponse(t, response, err)
-		if response != aor2 {
-			t.Errorf("Expected to respond to reader with %q, but got %q", aor2, response)
-		}
+		assertStoreLookups(t, store, 2)
+		assertAorLookedUp(t, store, "aor1")
+		assertAorLookedUp(t, store, "aor2")
 	})
 
 	t.Run("It should close inactive connections", func(t *testing.T) {
@@ -107,7 +103,6 @@ func TestSIPServer(t *testing.T) {
 		if err != nil {
 			t.Errorf("Error reading response: %w", err)
 		}
-
 	})
 }
 
@@ -131,10 +126,20 @@ func assertValidResponse(t *testing.T, response string, err error) {
 	}
 }
 
-func assertAorLookedUp(t *testing.T, store *SpyStore, wanted string) {
+func assertLastAorLookedUp(t *testing.T, store *SpyStore, wanted string) {
+	t.Helper()
 	if store.lastAor != wanted {
 		t.Errorf("Expected server to look up %q, but got %q instead", wanted, store.lastAor)
 	}
+}
+
+func assertAorLookedUp(t *testing.T, store *SpyStore, aor string) {
+	for _, v := range store.aorsLookedUp {
+		if v == aor {
+			return
+		}
+	}
+	t.Errorf("Expected %s to be looked up but it wasn't", aor)
 }
 
 func readWithTimeout(t *testing.T, reader *bufio.Reader) (string, error) {
@@ -175,17 +180,19 @@ func connectToServer(t *testing.T, address string) (net.Conn, *bufio.Reader, fun
 
 type FakeStore struct{}
 
-func (f *FakeStore) Find(aor string) string {
-	return aor
+func (f *FakeStore) Find(aor string) (*SIPRecord, error) {
+	return nil, nil
 }
 
 type SpyStore struct {
-	lastAor string
-	lookups int
+	lastAor      string
+	aorsLookedUp []string
+	lookups      int
 }
 
-func (s *SpyStore) Find(aor string) string {
+func (s *SpyStore) Find(aor string) (*SIPRecord, error) {
 	s.lastAor = aor
+	s.aorsLookedUp = append(s.aorsLookedUp, aor)
 	s.lookups++
-	return aor
+	return &SIPRecord{}, nil
 }

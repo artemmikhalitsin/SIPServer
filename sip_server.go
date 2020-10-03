@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 )
@@ -8,12 +9,14 @@ import (
 type SIPServer struct {
 	address  string
 	listener net.Listener
+	store    SIPStore
 }
 
-func NewSIPServer(port string) (*SIPServer, error) {
+func NewSIPServer(port string, store SIPStore) *SIPServer {
 	return &SIPServer{
 		address: port,
-	}, nil
+		store:   store,
+	}
 }
 
 func (s *SIPServer) Listen() error {
@@ -23,6 +26,19 @@ func (s *SIPServer) Listen() error {
 	}
 	defer listener.Close()
 	for {
-		listener.Accept()
+		conn, _ := listener.Accept()
+		go s.lookupRecords(conn)
 	}
+}
+
+func (s *SIPServer) lookupRecords(conn net.Conn) {
+	scanner := bufio.NewScanner(conn)
+	for scanner.Scan() {
+		msg := scanner.Text()
+		s.store.Find(msg)
+	}
+}
+
+type SIPStore interface {
+	Find(aor string)
 }

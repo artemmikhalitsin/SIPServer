@@ -76,11 +76,13 @@ func (s *SIPRegistrationServer) serveConnection(conn net.Conn) {
 	s.wg.Add(1)
 	reader := bufio.NewReader(conn)
 	for {
+		log.Println("Accepted new connection from ", conn.RemoteAddr())
 		conn.SetReadDeadline(time.Now().Add(s.timeout))
 		msg, err := readMsg(reader)
 		if err != nil {
 			fmt.Fprintln(conn, connectionClosedMessage)
 			conn.Close()
+			log.Println("Closed connection to ", conn.RemoteAddr())
 			s.wg.Done()
 			return
 		}

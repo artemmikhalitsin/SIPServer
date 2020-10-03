@@ -29,21 +29,13 @@ func TestSIPServer(t *testing.T) {
 		// Wait briefly server to receive message
 		time.Sleep(10 * time.Millisecond)
 
-		if store.lookups != 1 {
-			t.Errorf("Expected server to do %d lookups, but got %d", 1, store.lookups)
-		}
-		if store.lastAor != aor {
-			t.Errorf("Expected server to look up %q, but got %q instead", aor, store.lastAor)
-		}
+		assertStoreLookups(t, store, 1)
+		assertAorLookedUp(t, store, aor)
 
 		select {
 		case response := <-readMessage(responseReader):
-			if len(response) == 0 {
-				t.Errorf("Expected a response from the server, but didn't get one")
-			}
-			if response == connectionClosedMessage {
-				t.Errorf("Got a connection closed message, but didn't expect one")
-			}
+			assertResponseNotEmpty(t, response)
+			assertResponseNotClosed(t, response)
 		case <-time.After(100 * time.Millisecond):
 			t.Errorf("Timed out after waiting for a response")
 		}
@@ -54,21 +46,13 @@ func TestSIPServer(t *testing.T) {
 
 		time.Sleep(10 * time.Millisecond)
 
-		if store.lookups != 2 {
-			t.Errorf("Expected server to do %d lookups, but got %d", 2, store.lookups)
-		}
-		if store.lastAor != nextAor {
-			t.Errorf("Expected server to look up %q, but got %q instead", aor, store.lastAor)
-		}
+		assertStoreLookups(t, store, 2)
+		assertAorLookedUp(t, store, nextAor)
 
 		select {
 		case response := <-readMessage(responseReader):
-			if len(response) == 0 {
-				t.Errorf("Expected a response from the server, but didn't get one")
-			}
-			if response == connectionClosedMessage {
-				t.Errorf("Got a connection closed message, but didn't expect one")
-			}
+			assertResponseNotEmpty(t, response)
+			assertResponseNotClosed(t, response)
 		case <-time.After(100 * time.Millisecond):
 			t.Errorf("Timed out after waiting for a response")
 		}
@@ -99,6 +83,33 @@ func TestSIPServer(t *testing.T) {
 		}
 
 	})
+}
+
+func assertResponseNotEmpty(t *testing.T, res string) {
+	t.Helper()
+	if len(res) == 0 {
+		t.Errorf("Expected a response from the server, but didn't get one")
+	}
+}
+
+func assertResponseNotClosed(t *testing.T, res string) {
+	t.Helper()
+	if res == connectionClosedMessage {
+		t.Errorf("Got a connection closed message, but didn't expect one")
+	}
+}
+
+func assertStoreLookups(t *testing.T, store *SpyStore, wanted int) {
+	t.Helper()
+	if store.lookups != wanted {
+		t.Errorf("Expected server to do %d lookups, but got %d", wanted, store.lookups)
+	}
+}
+
+func assertAorLookedUp(t *testing.T, store *SpyStore, wanted string) {
+	if store.lastAor != wanted {
+		t.Errorf("Expected server to look up %q, but got %q instead", wanted, store.lastAor)
+	}
 }
 
 func connectToServer(t *testing.T, address string) (net.Conn, *bufio.Reader, func()) {

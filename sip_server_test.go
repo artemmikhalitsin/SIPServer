@@ -12,10 +12,7 @@ func TestSIPServer(t *testing.T) {
 	t.Run("It should accept TCP connections and process messages", func(t *testing.T) {
 		port := ":1123"
 		store := &SpyStore{}
-		config := &ServerConfig{
-			timeout: time.Millisecond * 20,
-		}
-		server := NewSIPServer(port, store, config)
+		server := NewSIPRecordServer(port, store, time.Millisecond*20)
 		defer server.Close()
 		go server.Listen()
 
@@ -57,10 +54,7 @@ func TestSIPServer(t *testing.T) {
 	t.Run("It should close inactive connections", func(t *testing.T) {
 		port := ":1123"
 		store := &FakeStore{}
-		config := &ServerConfig{
-			timeout: 20 * time.Millisecond,
-		}
-		server := NewSIPServer(port, store, config)
+		server := NewSIPRecordServer(port, store, time.Millisecond*20)
 		defer server.Close()
 		go server.Listen()
 

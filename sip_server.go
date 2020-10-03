@@ -11,33 +11,34 @@ import (
 
 const connectionClosedMessage = "Connection closed."
 
+// An SIPStore is a store that holds SIP records
 type SIPStore interface {
 	Find(aor string)
 }
 
-type SIPServer struct {
+// SIPRecordServer accepts incoming TCP connections and processess requests
+// for SIP record lookups
+type SIPRecordServer struct {
 	address  string
 	listener net.Listener
 	store    SIPStore
-	config   *ServerConfig
-	close    chan interface{}
+	timeout  time.Duration
+	close    chan interface{} // signals whether the server has stopped accepting connections
 	wg       sync.WaitGroup
 }
 
-type ServerConfig struct {
-	timeout time.Duration
-}
-
-func NewSIPServer(port string, store SIPStore, config *ServerConfig) *SIPServer {
-	return &SIPServer{
+// NewSIPRecordServer creates a new SIP Server with the given parameters
+func NewSIPRecordServer(port string, store SIPStore, timeout time.Duration) *SIPRecordServer {
+	return &SIPRecordServer{
 		address: port,
 		store:   store,
-		config:  config,
+		timeout: timeout,
 		close:   make(chan interface{}),
 	}
 }
 
-func (s *SIPServer) Listen() error {
+// Listen starts the server's TCP listener and begins accepting incoming connections
+func (s *SIPRecordServer) Listen() error {
 	listener, err := net.Listen("tcp", s.address)
 	s.listener = listener
 	if err != nil {
@@ -50,34 +51,37 @@ func (s *SIPServer) Listen() error {
 			case <-s.close:
 				return nil
 			default:
-				log.Printf("Error accepting connection: %v\n", err)
+				log.Printf("Error accepting connection: %v", err)
 			}
 		} else {
-			s.wg.Add(1)
-			go func() {
-				s.serveConnection(conn)
-				s.wg.Done()
-			}()
+			go s.serveConnection(conn)
 		}
 	}
 }
 
-func (s *SIPServer) Close() {
+// Close tells the server to stop accepting connections, closes its listener and
+// then waits for any ongoing connections to terminate
+func (s *SIPRecordServer) Close() {
 	close(s.close)
 	s.listener.Close()
 	s.wg.Wait()
 }
 
-func (s *SIPServer) serveConnection(conn net.Conn) {
+// serveConnection registers and handles incoming connections as long as they
+// stay active. Once a connection is inactive for longer than specified
+// in the server configuration, it is terminated
+func (s *SIPRecordServer) serveConnection(conn net.Conn) {
+	s.wg.Add(1)
 	reader := bufio.NewReader(conn)
 	for {
 		select {
 		case msg := <-readMessage(reader):
 			s.store.Find(msg)
-			conn.Write([]byte("Found\n"))
-		case <-time.After(s.config.timeout):
-			conn.Write([]byte(connectionClosedMessage + "\n"))
+			fmt.Fprintln(conn, "Found")
+		case <-time.After(s.timeout):
+			fmt.Fprintln(conn, connectionClosedMessage)
 			conn.Close()
+			s.wg.Done()
 			return
 		}
 	}

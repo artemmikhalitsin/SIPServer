@@ -16,7 +16,8 @@ Alternatively, you can use the provided docker-compose configuration:
     docker-compose up
 
 Then connect on the specified port using TCP connection utility
-  nc localhost 4000
+
+    nc localhost 4444
 
 After this, you can look up records by their addressOfRecord
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -13,7 +14,7 @@ const connectionClosedMessage = "Connection closed."
 
 // An SIPStore is a store that holds SIP records
 type SIPStore interface {
-	Find(aor string) string
+	Find(aor string) (*SIPRecord, error)
 }
 
 // SIPRecordServer accepts incoming TCP connections and processess requests
@@ -28,10 +29,10 @@ type SIPRecordServer struct {
 }
 
 // NewSIPRecordServer creates a new SIP Server with the given parameters
-func NewSIPRecordServer(port string, store SIPStore, timeout time.Duration) (*SIPRecordServer, chan interface{}) {
+func NewSIPRecordServer(address string, store SIPStore, timeout time.Duration) (*SIPRecordServer, chan interface{}) {
 	closed := make(chan interface{})
 	return &SIPRecordServer{
-		address: port,
+		address: address,
 		store:   store,
 		timeout: timeout,
 		close:   closed,
@@ -83,7 +84,12 @@ func (s *SIPRecordServer) serveConnection(conn net.Conn) {
 			s.wg.Done()
 			return
 		}
-		record := s.store.Find(msg)
-		fmt.Fprintln(conn, record)
+		record, err := s.store.Find(msg)
+		if err != nil {
+			fmt.Fprintf(conn, "Could not find record with address %s\n", msg)
+		} else {
+			response, _ := json.Marshal(record)
+			fmt.Fprintln(conn, string(response))
+		}
 	}
 }

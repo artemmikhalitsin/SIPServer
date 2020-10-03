@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -19,17 +20,11 @@ func TestSIPServer(t *testing.T) {
 		// Wait briefly for server to start
 		time.Sleep(10 * time.Millisecond)
 
-		conn, err := net.Dial("tcp", port)
-		if err != nil {
-			t.Errorf("Expected to connect to server but got error: %v", err)
-		}
-		defer conn.Close()
-
-		responseReader := bufio.NewReader(conn)
+		conn, responseReader, closeConn := connectToServer(t, server.address)
+		defer closeConn()
 
 		aor := "0142e2fa3543cb32bf000100620002"
-		aorMessage := aor + "\n"
-		conn.Write([]byte(aorMessage))
+		fmt.Fprintln(conn, aor)
 
 		// Wait briefly server to receive message
 		time.Sleep(10 * time.Millisecond)
@@ -61,12 +56,8 @@ func TestSIPServer(t *testing.T) {
 		// Wait briefly for server to start
 		time.Sleep(10 * time.Millisecond)
 
-		conn, err := net.Dial("tcp", port)
-		if err != nil {
-			t.Errorf("Expected to connect to server but got error: %v", err)
-		}
-		defer conn.Close()
-		responseReader := bufio.NewReader(conn)
+		_, responseReader, closeConn := connectToServer(t, server.address)
+		defer closeConn()
 
 		time.Sleep(30 * time.Millisecond)
 
@@ -76,10 +67,24 @@ func TestSIPServer(t *testing.T) {
 				t.Errorf("Expected a connection closed message, but got %q", msg)
 			}
 		case <-time.After(50 * time.Millisecond):
-			t.Errorf("Client timed out waiting for a response")
+			t.Errorf("Timed out after waiting for a response")
 		}
 
 	})
+}
+
+func connectToServer(t *testing.T, address string) (net.Conn, *bufio.Reader, func()) {
+	t.Helper()
+	conn, err := net.Dial("tcp", address)
+	if err != nil {
+		t.Fatalf("Expected to connect to server but got error: %v", err)
+	}
+	closeFunc := func() {
+		conn.Close()
+	}
+	responseReader := bufio.NewReader(conn)
+
+	return conn, responseReader, closeFunc
 }
 
 type FakeStore struct{}

@@ -8,23 +8,26 @@ import (
 )
 
 func main() {
-	regsFile, err := os.Open("regs")
+	address := fmt.Sprintf(":%s", os.Getenv("SIP_PORT"))
+	if address == ":" {
+		// default port
+		address = ":4444"
+	}
+	regsFilePath := os.Getenv("SIP_REGS_FILE")
+	if regsFilePath == "" {
+		regsFilePath = "regs"
+	}
+
+	regsFile, err := os.Open(regsFilePath)
 	if err != nil {
 		log.Fatalf("Error opening the SIP registration file: %v", err)
 	}
 	store := InMemoryStoreFromFile(regsFile)
 	regsFile.Close()
 	timeout := time.Second * 10
-	address := ":4444"
 	server, closed := NewSIPRecordServer(address, store, timeout)
-	fmt.Println("Accepting TCP connection at address", address)
+	log.Println("Accepting TCP connection at address", address)
 	go server.Listen()
 	<-closed
 	log.Println("Server terminated")
-}
-
-type echoStore struct{}
-
-func (e *echoStore) Find(aor string) string {
-	return aor
 }

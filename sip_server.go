@@ -36,6 +36,7 @@ func (s *SIPServer) lookupRecords(conn net.Conn) {
 	for scanner.Scan() {
 		msg := scanner.Text()
 		s.store.Find(msg)
+		conn.Write([]byte("Found\n"))
 	}
 }
 

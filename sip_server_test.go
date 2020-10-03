@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"net"
 	"testing"
 	"time"
@@ -23,6 +24,8 @@ func TestSIPServer(t *testing.T) {
 		}
 		defer conn.Close()
 
+		responseReader := bufio.NewReader(conn)
+
 		aor := "0142e2fa3543cb32bf000100620002"
 		aorMessage := aor + "\n"
 		conn.Write([]byte(aorMessage))
@@ -32,6 +35,11 @@ func TestSIPServer(t *testing.T) {
 
 		if store.lastAor != aor {
 			t.Errorf("Expected server to look up %q, but got %q instead", aor, store.lastAor)
+		}
+
+		response, _ := responseReader.ReadString('\n')
+		if len(response) == 0 {
+			t.Errorf("Expected a response from the server, but didn't get one")
 		}
 	})
 }

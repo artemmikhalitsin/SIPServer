@@ -28,13 +28,14 @@ type SIPRecordServer struct {
 }
 
 // NewSIPRecordServer creates a new SIP Server with the given parameters
-func NewSIPRecordServer(port string, store SIPStore, timeout time.Duration) *SIPRecordServer {
+func NewSIPRecordServer(port string, store SIPStore, timeout time.Duration) (*SIPRecordServer, chan interface{}) {
+	closed := make(chan interface{})
 	return &SIPRecordServer{
 		address: port,
 		store:   store,
 		timeout: timeout,
-		close:   make(chan interface{}),
-	}
+		close:   closed,
+	}, closed
 }
 
 // Listen starts the server's TCP listener and begins accepting incoming connections

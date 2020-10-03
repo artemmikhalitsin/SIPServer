@@ -13,7 +13,7 @@ func TestSIPServer(t *testing.T) {
 	t.Run("It should accept TCP connections and process messages", func(t *testing.T) {
 		port := ":1123"
 		store := &SpyStore{}
-		server := NewSIPRecordServer(port, store, time.Millisecond*20)
+		server, _ := NewSIPRecordServer(port, store, time.Millisecond*20)
 		defer server.Close()
 		go server.Listen()
 
@@ -51,7 +51,7 @@ func TestSIPServer(t *testing.T) {
 	t.Run("It should process lookups from multiple connections", func(t *testing.T) {
 		port := ":1123"
 		store := &SpyStore{}
-		server := NewSIPRecordServer(port, store, time.Millisecond*20)
+		server, _ := NewSIPRecordServer(port, store, time.Millisecond*20)
 		defer server.Close()
 		go server.Listen()
 
@@ -88,7 +88,7 @@ func TestSIPServer(t *testing.T) {
 	t.Run("It should close inactive connections", func(t *testing.T) {
 		port := ":1123"
 		store := &FakeStore{}
-		server := NewSIPRecordServer(port, store, time.Millisecond*20)
+		server, _ := NewSIPRecordServer(port, store, time.Millisecond*20)
 		defer server.Close()
 		go server.Listen()
 
@@ -176,7 +176,7 @@ func connectToServer(t *testing.T, address string) (net.Conn, *bufio.Reader, fun
 type FakeStore struct{}
 
 func (f *FakeStore) Find(aor string) string {
-	return ""
+	return aor
 }
 
 type SpyStore struct {

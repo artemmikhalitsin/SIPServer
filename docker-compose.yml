@@ -1,0 +1,7 @@
+---
+version: "3.3"
+services:
+  sip:
+    build: .
+    ports:
+      - "4444:4444"

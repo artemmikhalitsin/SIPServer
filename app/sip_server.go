@@ -73,10 +73,10 @@ func (s *SIPRegistrationServer) Close() {
 // stay active. Once a connection is inactive for longer than specified
 // in the server configuration, it is terminated
 func (s *SIPRegistrationServer) serveConnection(conn net.Conn) {
+	log.Println("Accepted new connection from ", conn.RemoteAddr())
 	s.wg.Add(1)
 	reader := bufio.NewReader(conn)
 	for {
-		log.Println("Accepted new connection from ", conn.RemoteAddr())
 		conn.SetReadDeadline(time.Now().Add(s.timeout))
 		msg, err := readMsg(reader)
 		if err != nil {
@@ -88,7 +88,7 @@ func (s *SIPRegistrationServer) serveConnection(conn net.Conn) {
 		}
 		registration, err := s.store.Find(msg)
 		if err != nil {
-			fmt.Fprintf(conn, "Could not find registration with address %s\n", msg)
+			fmt.Fprintln(conn)
 		} else {
 			response, _ := json.Marshal(registration)
 			fmt.Fprintln(conn, string(response))

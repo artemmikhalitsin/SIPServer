@@ -8,13 +8,13 @@ import (
 )
 
 type InMemoryStore struct {
-	records map[string]SIPRecord
+	registrations map[string]SIPRegistration
 }
 
 func NewInMemoryStore() *InMemoryStore {
-	records := make(map[string]SIPRecord)
+	registrations := make(map[string]SIPRegistration)
 	return &InMemoryStore{
-		records: records,
+		registrations: registrations,
 	}
 }
 
@@ -22,20 +22,20 @@ func InMemoryStoreFromFile(file *os.File) *InMemoryStore {
 	store := NewInMemoryStore()
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		var record SIPRecord
+		var registration SIPRegistration
 		line := scanner.Text()
-		json.Unmarshal([]byte(line), &record)
+		json.Unmarshal([]byte(line), &registration)
 
-		store.records[record.AddressOfRecord] = record
+		store.registrations[registration.AddressOfRecord] = registration
 	}
 
 	return store
 }
 
-func (i *InMemoryStore) Find(aor string) (*SIPRecord, error) {
-	record, ok := i.records[aor]
+func (i *InMemoryStore) Find(aor string) (*SIPRegistration, error) {
+	registration, ok := i.registrations[aor]
 	if !ok {
-		return nil, fmt.Errorf("No record found for aor %s", aor)
+		return nil, fmt.Errorf("No registration found for address of record %s", aor)
 	}
-	return &record, nil
+	return &registration, nil
 }

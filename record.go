@@ -1,6 +1,6 @@
 package main
 
-type SIPRecord struct {
+type SIPRegistration struct {
 	AddressOfRecord string   `json:addressOfRecord`
 	TenantId        string   `json:tenantId`
 	Uri             string   `json:uri`

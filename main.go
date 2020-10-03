@@ -25,7 +25,7 @@ func main() {
 	store := InMemoryStoreFromFile(regsFile)
 	regsFile.Close()
 	timeout := time.Second * 10
-	server, closed := NewSIPRecordServer(address, store, timeout)
+	server, closed := NewSIPRegistrationServer(address, store, timeout)
 	log.Println("Accepting TCP connection at address", address)
 	go server.Listen()
 	<-closed

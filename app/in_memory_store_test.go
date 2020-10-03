@@ -16,7 +16,7 @@ func TestInMemoryStore(t *testing.T) {
 		}
 		registration2 := SIPRegistration{
 			AddressOfRecord: "aor2",
-			TenantId:        "123",
+			TenantID:        "123",
 		}
 		var registrations = map[string]SIPRegistration{
 			"aor1": registration1,
@@ -39,7 +39,7 @@ func TestInMemoryStore(t *testing.T) {
 		// Try to retrieve non-existing registration
 		_, err = store.Find("aor3")
 		if err == nil {
-			t.Errorf("Exoected error on non-existing registration didn't get one")
+			t.Errorf("Expected error on non-existing registration but didn't get one")
 		}
 	})
 
@@ -54,7 +54,7 @@ func TestInMemoryStore(t *testing.T) {
 		got, err := store.Find("aor1")
 		want := SIPRegistration{
 			AddressOfRecord: "aor1",
-			TenantId:        "123",
+			TenantID:        "123",
 		}
 		assertNoError(t, err)
 		assertRecordEquals(t, &want, got)
@@ -62,7 +62,7 @@ func TestInMemoryStore(t *testing.T) {
 		// Retrieve second registration
 		want = SIPRegistration{
 			AddressOfRecord: "aor2",
-			TenantId:        "234",
+			TenantID:        "234",
 		}
 		got, err = store.Find("aor2")
 		assertNoError(t, err)

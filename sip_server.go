@@ -13,7 +13,7 @@ const connectionClosedMessage = "Connection closed."
 
 // An SIPStore is a store that holds SIP records
 type SIPStore interface {
-	Find(aor string)
+	Find(aor string) string
 }
 
 // SIPRecordServer accepts incoming TCP connections and processess requests
@@ -76,8 +76,8 @@ func (s *SIPRecordServer) serveConnection(conn net.Conn) {
 	for {
 		select {
 		case msg := <-readMessage(reader):
-			s.store.Find(msg)
-			fmt.Fprintln(conn, "Found")
+			record := s.store.Find(msg)
+			fmt.Fprintln(conn, record)
 		case <-time.After(s.timeout):
 			fmt.Fprintln(conn, connectionClosedMessage)
 			conn.Close()

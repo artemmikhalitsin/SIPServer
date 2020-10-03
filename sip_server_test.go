@@ -58,6 +58,53 @@ func TestSIPServer(t *testing.T) {
 		}
 	})
 
+	t.Run("It should process lookups from multiple connections", func(t *testing.T) {
+		port := ":1123"
+		store := &SpyStore{}
+		server := NewSIPRecordServer(port, store, time.Millisecond*20)
+		defer server.Close()
+		go server.Listen()
+
+		// Wait briefly for server to start
+		time.Sleep(10 * time.Millisecond)
+
+		conn1, reader1, closeConn1 := connectToServer(t, server.address)
+		defer closeConn1()
+		conn2, reader2, closeConn2 := connectToServer(t, server.address)
+		defer closeConn2()
+
+		aor1 := "aor1"
+		aor2 := "aor2"
+
+		fmt.Fprintln(conn1, aor1)
+		fmt.Fprintln(conn2, aor2)
+
+		// Wait for server to receive messages
+		time.Sleep(10 * time.Millisecond)
+
+		select {
+		case response := <-readMessage(reader1):
+			assertResponseNotEmpty(t, response)
+			assertResponseNotClosed(t, response)
+			if response != aor1 {
+				t.Errorf("Expected to respond to reader with %q, but got %q", aor1, response)
+			}
+		case <-time.After(100 * time.Millisecond):
+			t.Errorf("Timed out after waiting for a response")
+		}
+
+		select {
+		case response := <-readMessage(reader2):
+			assertResponseNotEmpty(t, response)
+			assertResponseNotClosed(t, response)
+			if response != aor2 {
+				t.Errorf("Expected to respond to reader with %q, but got %q", aor2, response)
+			}
+		case <-time.After(100 * time.Millisecond):
+			t.Errorf("Timed out after waiting for a response")
+		}
+	})
+
 	t.Run("It should close inactive connections", func(t *testing.T) {
 		port := ":1123"
 		store := &FakeStore{}
@@ -128,14 +175,17 @@ func connectToServer(t *testing.T, address string) (net.Conn, *bufio.Reader, fun
 
 type FakeStore struct{}
 
-func (f *FakeStore) Find(aor string) {}
+func (f *FakeStore) Find(aor string) string {
+	return ""
+}
 
 type SpyStore struct {
 	lastAor string
 	lookups int
 }
 
-func (s *SpyStore) Find(aor string) {
+func (s *SpyStore) Find(aor string) string {
 	s.lastAor = aor
 	s.lookups++
+	return aor
 }

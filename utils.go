@@ -18,3 +18,12 @@ func readMessage(r *bufio.Reader) <-chan string {
 	}()
 	return msgChannel
 }
+
+func readMsg(r *bufio.Reader) (string, error) {
+	msg, err := r.ReadString('\n')
+
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(msg), nil
+}

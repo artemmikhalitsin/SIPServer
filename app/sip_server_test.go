@@ -12,7 +12,9 @@ func TestSIPServer(t *testing.T) {
 
 	t.Run("It should accept TCP connections and process messages", func(t *testing.T) {
 		port := ":1123"
-		store := &SpyStore{}
+		store := &SpyStore{
+			rejectAors: []string{"112311"}, // list of AORs to simulate as "non-existing"
+		}
 		server, _ := NewSIPRegistrationServer(port, store, time.Millisecond*20)
 		defer server.Close()
 		go server.Listen()
@@ -46,6 +48,16 @@ func TestSIPServer(t *testing.T) {
 
 		response, err = readWithTimeout(t, responseReader)
 		assertValidResponse(t, response, err)
+
+		nonExistingAor := "112311"
+		fmt.Fprintln(conn, nonExistingAor)
+
+		time.Sleep(10 * time.Millisecond)
+		response, err = readWithTimeout(t, responseReader)
+		assertNoError(t, err)
+		if response != "" {
+			t.Errorf("Expected empty response for non-exsting aor, but got %q", response)
+		}
 	})
 
 	t.Run("It should process lookups from multiple connections", func(t *testing.T) {
@@ -188,11 +200,19 @@ type SpyStore struct {
 	lastAor      string
 	aorsLookedUp []string
 	lookups      int
+	rejectAors   []string
 }
 
 func (s *SpyStore) Find(aor string) (*SIPRegistration, error) {
 	s.lastAor = aor
 	s.aorsLookedUp = append(s.aorsLookedUp, aor)
 	s.lookups++
-	return &SIPRegistration{}, nil
+	for _, v := range s.rejectAors {
+		if v == aor {
+			return nil, fmt.Errorf("AOR doesn't exist")
+		}
+	}
+	return &SIPRegistration{
+		AddressOfRecord: aor,
+	}, nil
 }

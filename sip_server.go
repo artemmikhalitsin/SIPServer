@@ -74,15 +74,15 @@ func (s *SIPRecordServer) serveConnection(conn net.Conn) {
 	s.wg.Add(1)
 	reader := bufio.NewReader(conn)
 	for {
-		select {
-		case msg := <-readMessage(reader):
-			record := s.store.Find(msg)
-			fmt.Fprintln(conn, record)
-		case <-time.After(s.timeout):
+		conn.SetReadDeadline(time.Now().Add(s.timeout))
+		msg, err := readMsg(reader)
+		if err != nil {
 			fmt.Fprintln(conn, connectionClosedMessage)
 			conn.Close()
 			s.wg.Done()
 			return
 		}
+		record := s.store.Find(msg)
+		fmt.Fprintln(conn, record)
 	}
 }

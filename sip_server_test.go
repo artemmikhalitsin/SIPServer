@@ -32,13 +32,8 @@ func TestSIPServer(t *testing.T) {
 		assertStoreLookups(t, store, 1)
 		assertAorLookedUp(t, store, aor)
 
-		select {
-		case response := <-readMessage(responseReader):
-			assertResponseNotEmpty(t, response)
-			assertResponseNotClosed(t, response)
-		case <-time.After(100 * time.Millisecond):
-			t.Errorf("Timed out after waiting for a response")
-		}
+		response, err := readWithTimeout(t, responseReader)
+		assertValidResponse(t, response, err)
 
 		// Should serve additional lookups on same connection
 		nextAor := "014fb44ecd123b6706000100620005"
@@ -49,13 +44,8 @@ func TestSIPServer(t *testing.T) {
 		assertStoreLookups(t, store, 2)
 		assertAorLookedUp(t, store, nextAor)
 
-		select {
-		case response := <-readMessage(responseReader):
-			assertResponseNotEmpty(t, response)
-			assertResponseNotClosed(t, response)
-		case <-time.After(100 * time.Millisecond):
-			t.Errorf("Timed out after waiting for a response")
-		}
+		response, err = readWithTimeout(t, responseReader)
+		assertValidResponse(t, response, err)
 	})
 
 	t.Run("It should process lookups from multiple connections", func(t *testing.T) {
@@ -82,26 +72,16 @@ func TestSIPServer(t *testing.T) {
 		// Wait for server to receive messages
 		time.Sleep(10 * time.Millisecond)
 
-		select {
-		case response := <-readMessage(reader1):
-			assertResponseNotEmpty(t, response)
-			assertResponseNotClosed(t, response)
-			if response != aor1 {
-				t.Errorf("Expected to respond to reader with %q, but got %q", aor1, response)
-			}
-		case <-time.After(100 * time.Millisecond):
-			t.Errorf("Timed out after waiting for a response")
+		response, err := readWithTimeout(t, reader1)
+		assertValidResponse(t, response, err)
+		if response != aor1 {
+			t.Errorf("Expected to respond to reader with %q, but got %q", aor1, response)
 		}
 
-		select {
-		case response := <-readMessage(reader2):
-			assertResponseNotEmpty(t, response)
-			assertResponseNotClosed(t, response)
-			if response != aor2 {
-				t.Errorf("Expected to respond to reader with %q, but got %q", aor2, response)
-			}
-		case <-time.After(100 * time.Millisecond):
-			t.Errorf("Timed out after waiting for a response")
+		response, err = readWithTimeout(t, reader2)
+		assertValidResponse(t, response, err)
+		if response != aor2 {
+			t.Errorf("Expected to respond to reader with %q, but got %q", aor2, response)
 		}
 	})
 
@@ -120,30 +100,15 @@ func TestSIPServer(t *testing.T) {
 
 		time.Sleep(30 * time.Millisecond)
 
-		select {
-		case msg := <-readMessage(responseReader):
-			if msg != connectionClosedMessage {
-				t.Errorf("Expected a connection closed message, but got %q", msg)
-			}
-		case <-time.After(50 * time.Millisecond):
-			t.Errorf("Timed out after waiting for a response")
+		msg, err := readWithTimeout(t, responseReader)
+		if msg != connectionClosedMessage {
+			t.Errorf("Expected a connection closed message, but got %q", msg)
+		}
+		if err != nil {
+			t.Errorf("Error reading response: %w", err)
 		}
 
 	})
-}
-
-func assertResponseNotEmpty(t *testing.T, res string) {
-	t.Helper()
-	if len(res) == 0 {
-		t.Errorf("Expected a response from the server, but didn't get one")
-	}
-}
-
-func assertResponseNotClosed(t *testing.T, res string) {
-	t.Helper()
-	if res == connectionClosedMessage {
-		t.Errorf("Got a connection closed message, but didn't expect one")
-	}
 }
 
 func assertStoreLookups(t *testing.T, store *SpyStore, wanted int) {
@@ -153,9 +118,44 @@ func assertStoreLookups(t *testing.T, store *SpyStore, wanted int) {
 	}
 }
 
+func assertValidResponse(t *testing.T, response string, err error) {
+	t.Helper()
+	if len(response) == 0 {
+		t.Errorf("Expected a response from the server, but didn't get one")
+	}
+	if err != nil {
+		t.Errorf("Error reading response: %w", err)
+	}
+	if response == connectionClosedMessage {
+		t.Errorf("Got a connection closed message, but didn't expect one")
+	}
+}
+
 func assertAorLookedUp(t *testing.T, store *SpyStore, wanted string) {
 	if store.lastAor != wanted {
 		t.Errorf("Expected server to look up %q, but got %q instead", wanted, store.lastAor)
+	}
+}
+
+func readWithTimeout(t *testing.T, reader *bufio.Reader) (string, error) {
+	msgChannel := make(chan string, 1)
+	errorChannel := make(chan error, 1)
+	go func() {
+		msg, err := readMsg(reader)
+		if err != nil {
+			errorChannel <- err
+		} else {
+			msgChannel <- msg
+		}
+	}()
+
+	select {
+	case msg := <-msgChannel:
+		return msg, nil
+	case err := <-errorChannel:
+		return "", err
+	case <-time.After(100 * time.Millisecond):
+		return "", fmt.Errorf("Timed out waiting for a response")
 	}
 }
 
